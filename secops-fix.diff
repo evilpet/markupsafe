@@ -1,0 +1,47 @@
+diff --git a/src/markupsafe/_speedups.c b/src/markupsafe/_speedups.c
+index 8a315f2..7bcf2d9 100644
+--- a/src/markupsafe/_speedups.c
++++ b/src/markupsafe/_speedups.c
+@@ -151,8 +151,12 @@ escape_unicode_kind4(PyUnicodeObject *in)
+ static PyObject*
+ escape_unicode(PyObject *self, PyObject *s)
+ {
+-	if (!PyUnicode_Check(s))
++	if (!PyUnicode_Check(s)) {
++		PyErr_Format(PyExc_TypeError,
++				     "_escape_inner() argument must be a string, not %.100s",
++				     Py_TYPE(s)->tp_name);
+ 		return NULL;
++	}
+ 
+     // This check is no longer needed in Python 3.12.
+ 	if (PyUnicode_READY(s))
+diff --git a/tests/test_escape_inner.py b/tests/test_escape_inner.py
+new file mode 100644
+index 0000000..529085c
+--- /dev/null
++++ b/tests/test_escape_inner.py
+@@ -0,0 +1,23 @@
++from __future__ import annotations
++
++import pytest
++
++import markupsafe
++
++
++def test_escape_inner_rejects_non_str() -> None:
++    """``_escape_inner`` must reject a non-str argument with a clean,
++    catchable error.
++
++    The pure-Python fallback (``_native``) raises AttributeError/TypeError
++    naturally. The C extension (``_speedups``) must behave the same way
++    rather than returning NULL without setting a CPython exception, which
++    surfaces as a SystemError (an interpreter-level error indicating a C-API
++    contract violation).
++
++    This test runs under both backends via the autouse ``_mod`` fixture in
++    ``conftest.py``.
++    """
++    with pytest.raises((TypeError, AttributeError)) as excinfo:
++        markupsafe._escape_inner(42)  # type: ignore[attr-defined,arg-type]
++    assert not isinstance(excinfo.value, SystemError)

@@ -151,8 +151,12 @@ escape_unicode_kind4(PyUnicodeObject *in)
 static PyObject*
 escape_unicode(PyObject *self, PyObject *s)
 {
-	if (!PyUnicode_Check(s))
+	if (!PyUnicode_Check(s)) {
+		PyErr_Format(PyExc_TypeError,
+				     "_escape_inner() argument must be a string, not %.100s",
+				     Py_TYPE(s)->tp_name);
 		return NULL;
+	}
 
     // This check is no longer needed in Python 3.12.
 	if (PyUnicode_READY(s))
